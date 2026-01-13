@@ -86,23 +86,35 @@ def generate_answer(question: str, matches: List[VideoEntry]) -> str:
     if not matches:
         return "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
     question_tokens = set(tokenize(question))
-    supporting_sentences = []
+    combined_keywords: List[str] = []
+    supporting_points: List[str] = []
+
     for video in matches:
-        sentences = re.split(r"(?<=[.!?])\s+", video.transcript.strip())
-        for sentence in sentences:
-            sentence_tokens = set(tokenize(sentence))
-            if question_tokens & sentence_tokens:
-                supporting_sentences.append(sentence.strip())
-            if len(supporting_sentences) >= 3:
-                break
-        if len(supporting_sentences) >= 3:
-            break
+        combined_keywords.extend(video.ai_keywords)
+        if video.ai_summary:
+            supporting_points.append(video.ai_summary)
+        elif video.summary:
+            supporting_points.append(video.summary)
 
-    if supporting_sentences:
-        return " ".join(supporting_sentences)
+    keyword_frequency: dict[str, int] = {}
+    for keyword in combined_keywords:
+        keyword_frequency[keyword] = keyword_frequency.get(keyword, 0) + 1
+    top_keywords = sorted(keyword_frequency, key=keyword_frequency.get, reverse=True)[:5]
 
-    fallback_points = [video.ai_summary or video.summary for video in matches]
-    return " ".join(point for point in fallback_points if point)
+    focused_points: List[str] = []
+    for point in supporting_points:
+        point_tokens = set(tokenize(point))
+        if question_tokens & point_tokens:
+            focused_points.append(point)
+    if not focused_points:
+        focused_points = supporting_points[:2]
+
+    themes = ", ".join(top_keywords) if top_keywords else "shared experiences"
+    details = " ".join(focused_points)
+    return (
+        "Based on the analyzed testimonies, the archive suggests that "
+        f"{details} Themes most connected to your question include {themes}."
+    )
 
 
 @app.route("/")

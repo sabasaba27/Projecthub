@@ -50,9 +50,15 @@
 
 <section class="section map-section">
   <h2>Artsakh in the Caucasus Region</h2>
-  <p class="lead">A 3D-styled locator map highlighting Artsakh within the wider Caucasus region.</p>
+  <p class="lead">An interactive map highlighting Artsakh within the wider Caucasus region.</p>
   <div class="map-frame">
-    <img src="/static/uploads/artsakh-map.svg" alt="3D map of the Caucasus highlighting Artsakh" />
+    <iframe
+      title="Artsakh map"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=42.6%2C39.2%2C48.2%2C43.2&amp;layer=mapnik&amp;marker=40.2%2C46.6"
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+    ></iframe>
+    <img class="map-fallback" src="/static/uploads/artsakh-map.svg" alt="Map of the Caucasus highlighting Artsakh" />
   </div>
 </section>
 {% endblock %}
