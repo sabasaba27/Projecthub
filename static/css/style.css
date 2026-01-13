@@ -55,6 +55,11 @@ main {
   font-weight: 500;
 }
 
+.logo {
+  color: var(--dark);
+  text-decoration: none;
+}
+
 .nav-cta {
   background: var(--primary);
   color: white;
@@ -162,6 +167,23 @@ main {
 .steps {
   padding-left: 1.2rem;
   color: var(--muted);
+}
+
+.map-section {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.map-frame {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 18px;
+  box-shadow: 0 10px 20px rgba(15, 26, 45, 0.06);
+}
+
+.map-frame img {
+  width: 100%;
+  display: block;
 }
 
 .button {

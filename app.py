@@ -82,6 +82,29 @@ def analyze_transcript(transcript: str) -> tuple[str, List[str]]:
     return summary, keywords
 
 
+def generate_answer(question: str, matches: List[VideoEntry]) -> str:
+    if not matches:
+        return "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
+    question_tokens = set(tokenize(question))
+    supporting_sentences = []
+    for video in matches:
+        sentences = re.split(r"(?<=[.!?])\s+", video.transcript.strip())
+        for sentence in sentences:
+            sentence_tokens = set(tokenize(sentence))
+            if question_tokens & sentence_tokens:
+                supporting_sentences.append(sentence.strip())
+            if len(supporting_sentences) >= 3:
+                break
+        if len(supporting_sentences) >= 3:
+            break
+
+    if supporting_sentences:
+        return " ".join(supporting_sentences)
+
+    fallback_points = [video.ai_summary or video.summary for video in matches]
+    return " ".join(point for point in fallback_points if point)
+
+
 @app.route("/")
 def home() -> str:
     videos = load_videos()
@@ -191,14 +214,7 @@ def api_ask() -> tuple[str, int]:
     ranked.sort(key=lambda item: item[0], reverse=True)
 
     matches = [video for _, video in ranked][:3]
-    if matches:
-        titles = ", ".join(video.title for video in matches)
-        answer = (
-            "Based on analyzed testimonies, the archive highlights themes from these stories: "
-            f"{titles}. Explore the summaries below to dive deeper."
-        )
-    else:
-        answer = "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
+    answer = generate_answer(question, matches)
 
     return jsonify(
         {
