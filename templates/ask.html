@@ -19,12 +19,11 @@
 
 {% block scripts %}
 <script>
-  const videos = {{ videos | tojson }};
   const input = document.getElementById('question-input');
   const responseText = document.getElementById('response-text');
   const responseVideos = document.getElementById('response-videos');
 
-  function respond() {
+  async function respond() {
     const query = input.value.toLowerCase().trim();
     if (!query) {
       responseText.textContent = 'Please enter a question so the archive can respond.';
@@ -32,29 +31,36 @@
       return;
     }
 
-    const matched = videos.filter(video =>
-      [video.title, video.summary, video.key_word, video.year, video.speaker]
-        .join(' ')
-        .toLowerCase()
-        .includes(query)
-    );
+    responseText.textContent = 'Analyzing the archive...';
+    responseVideos.innerHTML = '';
 
-    responseText.textContent = matched.length
-      ? `We found ${matched.length} testimonies that connect to your question. Start with the highlighted stories below.`
-      : 'No direct matches yet. Try a broader question or explore the newest testimonies.';
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: query })
+    });
 
-    responseVideos.innerHTML = matched.length
-      ? matched.map(video => `
+    if (!response.ok) {
+      responseText.textContent = 'Unable to analyze right now. Please try again.';
+      return;
+    }
+
+    const data = await response.json();
+    responseText.textContent = data.answer;
+
+    responseVideos.innerHTML = data.matches.length
+      ? data.matches.map(video => `
           <div class="response-card">
             <img src="${video.thumbnail}" alt="${video.title}" />
             <div>
               <h3>${video.title}</h3>
               <p>${video.summary}</p>
               <span>${video.speaker} • ${video.year}</span>
+              ${video.video ? `<a class="button secondary" href="${video.video}" target="_blank" rel="noopener">Watch video</a>` : ''}
             </div>
           </div>
         `).join('')
-      : '<p class="empty">No videos matched this query yet. Check back after new uploads.</p>';
+      : '<p class="empty">No analyzed testimonies matched this question yet.</p>';
   }
 
   document.getElementById('ask-button').addEventListener('click', respond);

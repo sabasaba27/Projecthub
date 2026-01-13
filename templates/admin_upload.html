@@ -4,6 +4,7 @@
 <section class="section narrow">
   <h1>Admin Upload</h1>
   <p class="lead">Upload a new testimony so it can appear across the archive.</p>
+  <p class="admin-note">Use the private admin URL to access this form.</p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -33,8 +34,12 @@
       <textarea name="summary" rows="4" required></textarea>
     </label>
     <label>
+      Transcript (required for AI analysis)
+      <textarea name="transcript" rows="6" required></textarea>
+    </label>
+    <label>
       Key Word (AI highlight)
-      <input type="text" name="key_word" required />
+      <input type="text" name="key_word" placeholder="Optional override" />
     </label>
     <label>
       Thumbnail image

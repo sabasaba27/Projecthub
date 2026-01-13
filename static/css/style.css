@@ -284,6 +284,11 @@ main {
   border: 1px solid #d6deea;
 }
 
+.admin-note {
+  color: var(--muted);
+  margin-bottom: 1.2rem;
+}
+
 .flash-group {
   margin-bottom: 1rem;
 }

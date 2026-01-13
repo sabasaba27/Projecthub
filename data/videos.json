@@ -7,7 +7,12 @@
     "summary": "Ani describes leaving her hometown and the importance of preserving community memory.",
     "key_word": "Resilience",
     "thumbnail": "/static/uploads/sample-ani.svg",
-    "video": ""
+    "video": "",
+    "transcript": "Ani describes leaving her hometown and the importance of preserving community memory.",
+    "ai_summary": "Ani describes leaving her hometown and the importance of preserving community memory.",
+    "ai_keywords": [
+      "Resilience"
+    ]
   },
   {
     "id": 2,
@@ -17,7 +22,12 @@
     "summary": "Arman recalls family letters that documented daily life during displacement.",
     "key_word": "Identity",
     "thumbnail": "/static/uploads/sample-arman.svg",
-    "video": ""
+    "video": "",
+    "transcript": "Arman recalls family letters that documented daily life during displacement.",
+    "ai_summary": "Arman recalls family letters that documented daily life during displacement.",
+    "ai_keywords": [
+      "Identity"
+    ]
   },
   {
     "id": 3,
@@ -27,6 +37,11 @@
     "summary": "Mariam explains why sharing testimonies supports healing for younger generations.",
     "key_word": "Healing",
     "thumbnail": "/static/uploads/sample-mariam.svg",
-    "video": ""
+    "video": "",
+    "transcript": "Mariam explains why sharing testimonies supports healing for younger generations.",
+    "ai_summary": "Mariam explains why sharing testimonies supports healing for younger generations.",
+    "ai_keywords": [
+      "Healing"
+    ]
   }
 ]

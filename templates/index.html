@@ -65,7 +65,7 @@
       return;
     }
     const current = videos[index % videos.length];
-    word.textContent = current.key_word;
+    word.textContent = current.ai_keywords?.[0] ? current.ai_keywords[0] : current.key_word;
     caption.textContent = `${current.title} — ${current.speaker} (${current.year})`;
     image.src = current.thumbnail || '/static/uploads/sample-ani.svg';
     index += 1;

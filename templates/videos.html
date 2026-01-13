@@ -11,7 +11,7 @@
         <div class="video-body">
           <p class="tag">{{ video.key_word }}</p>
           <h3>{{ video.title }}</h3>
-          <p>{{ video.summary }}</p>
+          <p>{{ video.ai_summary or video.summary }}</p>
           <span>{{ video.speaker }} • {{ video.year }}</span>
           {% if video.video %}
             <a class="button secondary" href="{{ video.video }}" target="_blank" rel="noopener">Watch video</a>
