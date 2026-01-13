@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "title": "Home and Memory",
+    "speaker": "Ani H.",
+    "year": "2020",
+    "summary": "Ani describes leaving her hometown and the importance of preserving community memory.",
+    "key_word": "Resilience",
+    "thumbnail": "/static/uploads/sample-ani.svg",
+    "video": ""
+  },
+  {
+    "id": 2,
+    "title": "Letters from Artsakh",
+    "speaker": "Arman S.",
+    "year": "2016",
+    "summary": "Arman recalls family letters that documented daily life during displacement.",
+    "key_word": "Identity",
+    "thumbnail": "/static/uploads/sample-arman.svg",
+    "video": ""
+  },
+  {
+    "id": 3,
+    "title": "Continuing the Story",
+    "speaker": "Mariam K.",
+    "year": "2023",
+    "summary": "Mariam explains why sharing testimonies supports healing for younger generations.",
+    "key_word": "Healing",
+    "thumbnail": "/static/uploads/sample-mariam.svg",
+    "video": ""
+  }
+]

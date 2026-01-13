@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section">
+  <h1>All Testimonies</h1>
+  <p class="lead">Browse the full video archive. Each card includes a key word and summary to help with discovery.</p>
+  <div class="video-grid">
+    {% for video in videos %}
+      <article class="video-card">
+        <img src="{{ video.thumbnail }}" alt="{{ video.title }}" />
+        <div class="video-body">
+          <p class="tag">{{ video.key_word }}</p>
+          <h3>{{ video.title }}</h3>
+          <p>{{ video.summary }}</p>
+          <span>{{ video.speaker }} • {{ video.year }}</span>
+          {% if video.video %}
+            <a class="button secondary" href="{{ video.video }}" target="_blank" rel="noopener">Watch video</a>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <p>No videos have been uploaded yet. Visit the admin upload page to add the first testimony.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
