@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from flask import Flask, jsonify, render_template, request, redirect, url_for, flash, abort
 from werkzeug.utils import secure_filename
@@ -18,6 +18,9 @@ UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg"}
 ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "webm"}
 ADMIN_UPLOAD_TOKEN = os.environ.get("ADMIN_UPLOAD_TOKEN", "")
+LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", "")
+LOCAL_MODEL_CTX = int(os.environ.get("LOCAL_MODEL_CTX", "2048"))
+LOCAL_MODEL_THREADS = int(os.environ.get("LOCAL_MODEL_THREADS", "4"))
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -36,6 +39,77 @@ class VideoEntry:
     transcript: str = ""
     ai_summary: str = ""
     ai_keywords: List[str] = field(default_factory=list)
+
+
+class LocalAI:
+    def __init__(self, model_path: str) -> None:
+        self.model_path = model_path
+        self._llm = None
+
+    def is_ready(self) -> bool:
+        return bool(self.model_path)
+
+    def _load(self) -> None:
+        if self._llm or not self.model_path:
+            return
+        try:
+            from llama_cpp import Llama
+        except ImportError:
+            return
+        self._llm = Llama(
+            model_path=self.model_path,
+            n_ctx=LOCAL_MODEL_CTX,
+            n_threads=LOCAL_MODEL_THREADS,
+        )
+
+    def _complete(self, prompt: str, max_tokens: int = 256) -> str:
+        self._load()
+        if not self._llm:
+            return ""
+        output = self._llm(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=0.2,
+            top_p=0.9,
+            stop=["</answer>"],
+        )
+        text = output["choices"][0]["text"].strip()
+        return text
+
+    def summarize(self, transcript: str) -> tuple[str, List[str]]:
+        if not self.is_ready():
+            return "", []
+        prompt = (
+            "<task>Summarize and extract keywords from the transcript.</task>\n"
+            "<transcript>\n"
+            f"{transcript}\n"
+            "</transcript>\n"
+            "<answer>Summary:</answer>"
+        )
+        summary_text = self._complete(prompt, max_tokens=160)
+        keywords_prompt = (
+            "<task>Extract 5 single-word keywords.</task>\n"
+            "<transcript>\n"
+            f"{transcript}\n"
+            "</transcript>\n"
+            "<answer>Keywords:</answer>"
+        )
+        keywords_text = self._complete(keywords_prompt, max_tokens=60)
+        keywords = [word.strip().strip(",") for word in re.split(r"[,\n]", keywords_text) if word.strip()]
+        return summary_text, keywords[:5]
+
+    def answer(self, question: str, context: str) -> str:
+        if not self.is_ready():
+            return ""
+        prompt = (
+            "<task>Answer the question using only the context provided.</task>\n"
+            "<context>\n"
+            f"{context}\n"
+            "</context>\n"
+            f"<question>{question}</question>\n"
+            "<answer>"
+        )
+        return self._complete(prompt, max_tokens=220)
 
 
 
@@ -82,9 +156,17 @@ def analyze_transcript(transcript: str) -> tuple[str, List[str]]:
     return summary, keywords
 
 
-def generate_answer(question: str, matches: List[VideoEntry]) -> str:
+def generate_answer(question: str, matches: List[VideoEntry], ai_client: Optional[LocalAI]) -> str:
     if not matches:
         return "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
+    if ai_client and ai_client.is_ready():
+        combined_context = "\n\n".join(
+            f"Title: {video.title}\nSpeaker: {video.speaker}\nTranscript: {video.transcript}"
+            for video in matches
+        )
+        ai_response = ai_client.answer(question, combined_context)
+        if ai_response:
+            return ai_response
     question_tokens = set(tokenize(question))
     combined_keywords: List[str] = []
     supporting_points: List[str] = []
@@ -115,6 +197,9 @@ def generate_answer(question: str, matches: List[VideoEntry]) -> str:
         "Based on the analyzed testimonies, the archive suggests that "
         f"{details} Themes most connected to your question include {themes}."
     )
+
+
+ai_client = LocalAI(LOCAL_MODEL_PATH)
 
 
 @app.route("/")
@@ -179,6 +264,12 @@ def admin_upload_token(token: str) -> str:
             video_path = f"/static/uploads/{filename}"
 
         ai_summary, ai_keywords = analyze_transcript(transcript)
+        if ai_client.is_ready():
+            ai_summary_local, ai_keywords_local = ai_client.summarize(transcript)
+            if ai_summary_local:
+                ai_summary = ai_summary_local
+            if ai_keywords_local:
+                ai_keywords = ai_keywords_local
         key_word = key_word or (ai_keywords[0].title() if ai_keywords else "Story")
 
         videos = load_videos()
@@ -226,7 +317,7 @@ def api_ask() -> tuple[str, int]:
     ranked.sort(key=lambda item: item[0], reverse=True)
 
     matches = [video for _, video in ranked][:3]
-    answer = generate_answer(question, matches)
+    answer = generate_answer(question, matches, ai_client)
 
     return jsonify(
         {
