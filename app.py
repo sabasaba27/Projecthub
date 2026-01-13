@@ -21,6 +21,7 @@ ADMIN_UPLOAD_TOKEN = os.environ.get("ADMIN_UPLOAD_TOKEN", "")
 LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", "")
 LOCAL_MODEL_CTX = int(os.environ.get("LOCAL_MODEL_CTX", "2048"))
 LOCAL_MODEL_THREADS = int(os.environ.get("LOCAL_MODEL_THREADS", "4"))
+LOCAL_MODEL_MAX_CHARS = int(os.environ.get("LOCAL_MODEL_MAX_CHARS", "6000"))
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -103,6 +104,8 @@ class LocalAI:
             return ""
         prompt = (
             "<task>Answer the question using only the context provided.</task>\n"
+            "If the context does not contain enough information, say so plainly.\n"
+            "Keep the response in 2-4 sentences and avoid quoting the prompt.\n"
             "<context>\n"
             f"{context}\n"
             "</context>\n"
@@ -156,14 +159,28 @@ def analyze_transcript(transcript: str) -> tuple[str, List[str]]:
     return summary, keywords
 
 
+def build_context(videos: List[VideoEntry], max_chars: int) -> str:
+    chunks = []
+    total = 0
+    for video in videos:
+        entry = (
+            f"Title: {video.title}\n"
+            f"Speaker: {video.speaker}\n"
+            f"Year: {video.year}\n"
+            f"Transcript: {video.transcript}\n"
+        )
+        if total + len(entry) > max_chars:
+            break
+        chunks.append(entry)
+        total += len(entry)
+    return "\n".join(chunks)
+
+
 def generate_answer(question: str, matches: List[VideoEntry], ai_client: Optional[LocalAI]) -> str:
     if not matches:
         return "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
     if ai_client and ai_client.is_ready():
-        combined_context = "\n\n".join(
-            f"Title: {video.title}\nSpeaker: {video.speaker}\nTranscript: {video.transcript}"
-            for video in matches
-        )
+        combined_context = build_context(matches, LOCAL_MODEL_MAX_CHARS)
         ai_response = ai_client.answer(question, combined_context)
         if ai_response:
             return ai_response
@@ -317,7 +334,12 @@ def api_ask() -> tuple[str, int]:
     ranked.sort(key=lambda item: item[0], reverse=True)
 
     matches = [video for _, video in ranked][:3]
-    answer = generate_answer(question, matches, ai_client)
+    if not matches and ai_client.is_ready():
+        answer = ai_client.answer(question, build_context(videos, LOCAL_MODEL_MAX_CHARS))
+        if not answer:
+            answer = "The archive does not contain enough information to answer that question yet."
+    else:
+        answer = generate_answer(question, matches, ai_client)
 
     return jsonify(
         {
