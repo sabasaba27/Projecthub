@@ -18,7 +18,10 @@ UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg"}
 ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "webm"}
 ADMIN_UPLOAD_TOKEN = os.environ.get("ADMIN_UPLOAD_TOKEN", "")
+LOCAL_MODEL_PATH_FILE = DATA_DIR / "local_model_path.txt"
 LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", "")
+if not LOCAL_MODEL_PATH and LOCAL_MODEL_PATH_FILE.exists():
+    LOCAL_MODEL_PATH = LOCAL_MODEL_PATH_FILE.read_text(encoding="utf-8").strip()
 LOCAL_MODEL_CTX = int(os.environ.get("LOCAL_MODEL_CTX", "2048"))
 LOCAL_MODEL_THREADS = int(os.environ.get("LOCAL_MODEL_THREADS", "4"))
 LOCAL_MODEL_MAX_CHARS = int(os.environ.get("LOCAL_MODEL_MAX_CHARS", "6000"))
