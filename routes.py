@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from threading import Thread
 
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 
 from ai_client import LocalAI
 from archive import VideoEntry, analyze_transcript, build_context, generate_answer, load_videos, save_videos, tokenize
-from config import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS, UPLOAD_DIR, Settings
+from config import ALLOWED_IMAGE_EXTENSIONS, ALLOWED_VIDEO_EXTENSIONS, Settings
+from storage import StorageClient
 
 
 def _is_allowed(filename: str, extensions: set[str]) -> bool:
@@ -15,6 +17,25 @@ def _is_allowed(filename: str, extensions: set[str]) -> bool:
 
 
 def register_routes(app: Flask, settings: Settings, ai_client: LocalAI) -> None:
+    storage_client = StorageClient(settings)
+
+    def _update_ai_analysis(video_id: int, transcript: str) -> None:
+        if not ai_client.is_ready():
+            return
+        ai_summary, ai_keywords = ai_client.summarize(transcript)
+        if not ai_summary and not ai_keywords:
+            return
+        videos = load_videos()
+        for video in videos:
+            if video.id == video_id:
+                if ai_summary:
+                    video.ai_summary = ai_summary
+                if ai_keywords:
+                    video.ai_keywords = ai_keywords
+                    video.key_word = video.key_word or ai_keywords[0].title()
+                break
+        save_videos(videos)
+
     @app.route("/")
     def home() -> str:
         videos = load_videos()
@@ -75,19 +96,28 @@ def register_routes(app: Flask, settings: Settings, ai_client: LocalAI) -> None:
 
             if thumbnail and _is_allowed(thumbnail.filename, ALLOWED_IMAGE_EXTENSIONS):
                 filename = secure_filename(thumbnail.filename)
-                saved_path = UPLOAD_DIR / filename
-                thumbnail.save(saved_path)
-                thumbnail_path = f"/static/uploads/{filename}"
+                try:
+                    stored = storage_client.save(thumbnail, filename)
+                except RuntimeError as exc:
+                    flash(str(exc), "error")
+                    return redirect(url_for("admin_upload_token", token=token))
+                thumbnail_path = stored.url
 
             if video_file and _is_allowed(video_file.filename, ALLOWED_VIDEO_EXTENSIONS):
                 filename = secure_filename(video_file.filename)
-                saved_path = UPLOAD_DIR / filename
-                video_file.save(saved_path)
-                video_path = f"/static/uploads/{filename}"
+                try:
+                    stored = storage_client.save(video_file, filename)
+                except RuntimeError as exc:
+                    flash(str(exc), "error")
+                    return redirect(url_for("admin_upload_token", token=token))
+                video_path = stored.url
 
             ai_summary, ai_keywords = analyze_transcript(transcript)
-            if ai_client.is_ready():
-                ai_summary_local, ai_keywords_local = ai_client.summarize(transcript)
+            if ai_client.is_ready() and not settings.defer_ai_analysis:
+                try:
+                    ai_summary_local, ai_keywords_local = ai_client.summarize(transcript)
+                except Exception:
+                    ai_summary_local, ai_keywords_local = "", []
                 if ai_summary_local:
                     ai_summary = ai_summary_local
                 if ai_keywords_local:
@@ -114,6 +144,12 @@ def register_routes(app: Flask, settings: Settings, ai_client: LocalAI) -> None:
             )
             videos.append(new_video)
             save_videos(videos)
+            if settings.defer_ai_analysis and ai_client.is_ready():
+                Thread(
+                    target=_update_ai_analysis,
+                    args=(new_video.id, transcript),
+                    daemon=True,
+                ).start()
             flash("Video entry saved. It will now appear across the site.", "success")
             return redirect(url_for("videos"))
 
@@ -140,7 +176,10 @@ def register_routes(app: Flask, settings: Settings, ai_client: LocalAI) -> None:
         matches = [video for _, video in ranked][:3]
         if ai_client.is_ready():
             context_videos = matches or videos
-            answer = ai_client.answer(question, build_context(context_videos, settings.local_model_max_chars))
+            try:
+                answer = ai_client.answer(question, build_context(context_videos, settings.local_model_max_chars))
+            except Exception:
+                answer = ""
             if not answer:
                 answer = "The archive does not contain enough information to answer that question yet."
         else:
