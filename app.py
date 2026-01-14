@@ -135,7 +135,7 @@ def is_allowed(filename: str, extensions: set[str]) -> bool:
 
 
 def tokenize(text: str) -> List[str]:
-    words = re.findall(r"[a-zA-Z']+", text.lower())
+    words = re.findall(r"[^\W\d_']+", text.lower(), flags=re.UNICODE)
     stop_words = {
         "the", "and", "that", "with", "from", "this", "have", "were", "their",
         "about", "into", "they", "them", "when", "what", "your", "you", "for",
@@ -163,10 +163,14 @@ def build_context(videos: List[VideoEntry], max_chars: int) -> str:
     chunks = []
     total = 0
     for video in videos:
+        summary = video.ai_summary or video.summary
+        keywords = ", ".join(video.ai_keywords)
         entry = (
             f"Title: {video.title}\n"
             f"Speaker: {video.speaker}\n"
             f"Year: {video.year}\n"
+            f"Summary: {summary}\n"
+            f"Keywords: {keywords}\n"
             f"Transcript: {video.transcript}\n"
         )
         if total + len(entry) > max_chars:
@@ -334,8 +338,9 @@ def api_ask() -> tuple[str, int]:
     ranked.sort(key=lambda item: item[0], reverse=True)
 
     matches = [video for _, video in ranked][:3]
-    if not matches and ai_client.is_ready():
-        answer = ai_client.answer(question, build_context(videos, LOCAL_MODEL_MAX_CHARS))
+    if ai_client.is_ready():
+        context_videos = matches or videos
+        answer = ai_client.answer(question, build_context(context_videos, LOCAL_MODEL_MAX_CHARS))
         if not answer:
             answer = "The archive does not contain enough information to answer that question yet."
     else:
