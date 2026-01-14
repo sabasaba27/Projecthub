@@ -1,165 +1,384 @@
-from flask import Flask, render_template, session, current_app, request, flash, redirect, url_for
-import os
-from routes.auth import auth
-from routes.user import user_route
-from routes.project import project, allowed_file, project_bp
-from models import db, Project, User, UserProject
-from werkzeug.utils import secure_filename
-# Initialize Flask app
-app = Flask(__name__)
+from __future__ import annotations
 
-# Secret key for sessions
+import json
+import os
+import re
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
+from flask import Flask, jsonify, render_template, request, redirect, url_for, flash, abort
+from werkzeug.utils import secure_filename
+
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+UPLOAD_DIR = BASE_DIR / "static" / "uploads"
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg"}
+ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "webm"}
+ADMIN_UPLOAD_TOKEN = os.environ.get("ADMIN_UPLOAD_TOKEN", "")
+LOCAL_MODEL_PATH_FILE = DATA_DIR / "local_model_path.txt"
+LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", "")
+if not LOCAL_MODEL_PATH and LOCAL_MODEL_PATH_FILE.exists():
+    LOCAL_MODEL_PATH = LOCAL_MODEL_PATH_FILE.read_text(encoding="utf-8").strip()
+LOCAL_MODEL_CTX = int(os.environ.get("LOCAL_MODEL_CTX", "2048"))
+LOCAL_MODEL_THREADS = int(os.environ.get("LOCAL_MODEL_THREADS", "4"))
+LOCAL_MODEL_MAX_CHARS = int(os.environ.get("LOCAL_MODEL_MAX_CHARS", "6000"))
+LOCAL_MODEL_PROMPT_MAX_CHARS = int(
+    os.environ.get("LOCAL_MODEL_PROMPT_MAX_CHARS", str(LOCAL_MODEL_CTX * 3))
+)
+
+app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['WTF_CSRF_ENABLED'] = True
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# Add the UPLOAD_FOLDER configuration
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# Initialize the SQLAlchemy instance
-db.init_app(app)
-
-
-# Initialize the SQLAlchemy instance
-
+@dataclass
+class VideoEntry:
+    id: int
+    title: str
+    speaker: str
+    year: str
+    summary: str
+    key_word: str
+    thumbnail: str
+    video: str
+    transcript: str = ""
+    ai_summary: str = ""
+    ai_keywords: List[str] = field(default_factory=list)
 
 
-# Register Blueprints
-app.register_blueprint(auth, url_prefix='/auth')
-app.register_blueprint(user_route, url_prefix='/user')
-app.register_blueprint(project, url_prefix='/project')
-app.register_blueprint(project_bp, url_prefix='/project')
+class LocalAI:
+    def __init__(self, model_path: str) -> None:
+        self.model_path = model_path
+        self._llm = None
 
+    def is_ready(self) -> bool:
+        return bool(self.model_path)
 
-
-
-
-# Function to initialize the database
-def init_db(app):
-    with app.app_context():
-        # Create tables if they don't exist
-        db.create_all()
-
-
-# Initialize the database
-init_db(app)
-
-
-
-# Routes
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/contact')
-def contact():
-    return render_template('contact.html')
-
-@app.route('/ivy_league')
-def ivy_league():
-    return render_template('ivy_league.html')
-@app.route('/browse')
-def browse_project():
-    users = {user.id: user for user in User.query.all()}  # Create a dictionary with user.id as the key
-    projects = Project.query.all()
-
-    return render_template('page2.html', projects=projects, users=users)
-
-
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
-    if 'user' not in session or session['role'] != 'organizer':
-        return "Access denied. Only organizers can upload projects.", 403
-
-    if request.method == 'POST':
-        title = request.form['projectTitle']
-        description = request.form['projectDescription']
-        eligibility = request.form['eligibility']
-        fee_str = request.form['fee']
-        place = request.form['place']
-        date = request.form['date']
-        file = request.files['projectImage']
-
-        # Validate fee input
+    def _load(self) -> None:
+        if self._llm or not self.model_path:
+            return
         try:
-            fee = float(fee_str)  # Attempt to convert fee to float
-        except ValueError:
-            flash('Invalid fee value. Please enter a valid number.', 'danger')
-            return redirect(url_for('project.upload'))
+            from llama_cpp import Llama
+        except ImportError:
+            return
+        self._llm = Llama(
+            model_path=self.model_path,
+            n_ctx=LOCAL_MODEL_CTX,
+            n_threads=LOCAL_MODEL_THREADS,
+        )
 
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-
-            organizer = User.query.filter_by(username=session['user']).first()  # Use lowercase 'user'
-            new_project = Project(
-                title=title,
-                description=description,
-                organizer_id=organizer.id,
-                eligibility=eligibility,
-                fee=fee,
-                place=place,
-                date=date,
-                image=filename
+    def _complete(self, prompt: str, max_tokens: int = 256) -> str:
+        self._load()
+        if not self._llm:
+            return ""
+        try:
+            output = self._llm(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                top_p=0.9,
+                stop=["</answer>"],
             )
-            try:
-                db.session.add(new_project)
-                db.session.commit()
-                flash('Project uploaded successfully!', 'success')
-                return redirect(url_for('/browse'))
-            except Exception as e:
-                db.session.rollback()
-                flash('An error occurred while uploading the project. Please try again.', 'danger')
-                print(e)  # Log the error for debugging
+        except ValueError:
+            return ""
+        text = output["choices"][0]["text"].strip()
+        return text
 
-        else:
-            flash('Invalid file type. Only PNG, JPG, JPEG, and GIF are allowed.', 'danger')
+    def _clip_text(self, text: str, max_chars: int) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars].rsplit(" ", 1)[0] + "…"
 
-    return render_template('upload.html')
-# routes/project.py
-from flask import Blueprint, render_template
-from models import Project
+    def summarize(self, transcript: str) -> tuple[str, List[str]]:
+        if not self.is_ready():
+            return "", []
+        clipped_transcript = self._clip_text(transcript, LOCAL_MODEL_PROMPT_MAX_CHARS)
+        prompt = (
+            "<task>Summarize and extract keywords from the transcript.</task>\n"
+            "<transcript>\n"
+            f"{clipped_transcript}\n"
+            "</transcript>\n"
+            "<answer>Summary:</answer>"
+        )
+        summary_text = self._complete(prompt, max_tokens=160)
+        keywords_prompt = (
+            "<task>Extract 5 single-word keywords.</task>\n"
+            "<transcript>\n"
+            f"{clipped_transcript}\n"
+            "</transcript>\n"
+            "<answer>Keywords:</answer>"
+        )
+        keywords_text = self._complete(keywords_prompt, max_tokens=60)
+        keywords = [word.strip().strip(",") for word in re.split(r"[,\n]", keywords_text) if word.strip()]
+        return summary_text, keywords[:5]
 
-project = Blueprint('project', __name__)
-
-
-@app.route('/remove_project/<int:project_id>', methods=['POST'])
-def remove_project(project_id):
-    try:
-        # Find the project by its ID
-        project = UserProject.query.get(project_id)
-
-        if project:
-            # If the project is found, delete it
-            print(f"Project {project_id} found and deleting...")
-            db.session.delete(project)
-            db.session.commit()
-            flash('Project successfully removed.', 'success')
-        else:
-            print(f"Project {project_id} not found.")
-            flash('Project not found.', 'danger')
-
-    except Exception as e:
-        # Print any error for debugging purposes
-        print(f"Error occurred: {e}")
-        flash('An error occurred while trying to remove the project.', 'danger')
-
-    # Redirect back to the user's profile page
-    return redirect(url_for('user.profile'))
-
-
-
-@app.route('/project/<int:project_id>')
-def project_details(project_id):
-    project = Project.query.get_or_404(project_id)  # Get the project by ID
-    return render_template('project_details.html', project=project)
+    def answer(self, question: str, context: str) -> str:
+        if not self.is_ready():
+            return ""
+        clipped_context = self._clip_text(context, LOCAL_MODEL_PROMPT_MAX_CHARS)
+        prompt = (
+            "<task>Answer the question using only the context provided.</task>\n"
+            "If the context does not contain enough information, say so plainly.\n"
+            "Keep the response in 2-4 sentences and avoid quoting the prompt.\n"
+            "<context>\n"
+            f"{clipped_context}\n"
+            "</context>\n"
+            f"<question>{question}</question>\n"
+            "<answer>"
+        )
+        return self._complete(prompt, max_tokens=220)
 
 
 
-if __name__ == '__main__':
+def load_videos() -> List[VideoEntry]:
+    data_path = DATA_DIR / "videos.json"
+    if not data_path.exists():
+        return []
+    payload = json.loads(data_path.read_text(encoding="utf-8"))
+    return [VideoEntry(**item) for item in payload]
+
+
+def save_videos(videos: List[VideoEntry]) -> None:
+    data_path = DATA_DIR / "videos.json"
+    payload = [video.__dict__ for video in videos]
+    data_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def is_allowed(filename: str, extensions: set[str]) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in extensions
+
+
+def tokenize(text: str) -> List[str]:
+    words = re.findall(r"[^\W\d_']+", text.lower(), flags=re.UNICODE)
+    stop_words = {
+        "the", "and", "that", "with", "from", "this", "have", "were", "their",
+        "about", "into", "they", "them", "when", "what", "your", "you", "for",
+        "are", "was", "has", "had", "who", "why", "how", "our", "out", "but",
+        "not", "his", "her", "she", "him", "its", "our", "we", "us", "a", "an",
+        "to", "of", "in", "on", "by", "as", "it", "is", "be", "or", "at"
+    }
+    return [word for word in words if word not in stop_words]
+
+
+def analyze_transcript(transcript: str) -> tuple[str, List[str]]:
+    if not transcript.strip():
+        return "", []
+    sentences = re.split(r"(?<=[.!?])\s+", transcript.strip())
+    summary = sentences[0] if sentences else transcript.strip()
+    words = tokenize(transcript)
+    frequency: dict[str, int] = {}
+    for word in words:
+        frequency[word] = frequency.get(word, 0) + 1
+    keywords = sorted(frequency, key=frequency.get, reverse=True)[:5]
+    return summary, keywords
+
+
+def build_context(videos: List[VideoEntry], max_chars: int) -> str:
+    chunks = []
+    total = 0
+    for video in videos:
+        summary = video.ai_summary or video.summary
+        keywords = ", ".join(video.ai_keywords)
+        entry = (
+            f"Title: {video.title}\n"
+            f"Speaker: {video.speaker}\n"
+            f"Year: {video.year}\n"
+            f"Summary: {summary}\n"
+            f"Keywords: {keywords}\n"
+            f"Transcript: {video.transcript}\n"
+        )
+        if total + len(entry) > max_chars:
+            break
+        chunks.append(entry)
+        total += len(entry)
+    return "\n".join(chunks)
+
+
+def generate_answer(question: str, matches: List[VideoEntry], ai_client: Optional[LocalAI]) -> str:
+    if not matches:
+        return "No analyzed testimonies match that question yet. Try a broader question or upload more videos."
+    if ai_client and ai_client.is_ready():
+        combined_context = build_context(matches, LOCAL_MODEL_MAX_CHARS)
+        ai_response = ai_client.answer(question, combined_context)
+        if ai_response:
+            return ai_response
+    question_tokens = set(tokenize(question))
+    combined_keywords: List[str] = []
+    supporting_points: List[str] = []
+
+    for video in matches:
+        combined_keywords.extend(video.ai_keywords)
+        if video.ai_summary:
+            supporting_points.append(video.ai_summary)
+        elif video.summary:
+            supporting_points.append(video.summary)
+
+    keyword_frequency: dict[str, int] = {}
+    for keyword in combined_keywords:
+        keyword_frequency[keyword] = keyword_frequency.get(keyword, 0) + 1
+    top_keywords = sorted(keyword_frequency, key=keyword_frequency.get, reverse=True)[:5]
+
+    focused_points: List[str] = []
+    for point in supporting_points:
+        point_tokens = set(tokenize(point))
+        if question_tokens & point_tokens:
+            focused_points.append(point)
+    if not focused_points:
+        focused_points = supporting_points[:2]
+
+    themes = ", ".join(top_keywords) if top_keywords else "shared experiences"
+    details = " ".join(focused_points)
+    return (
+        "Based on the analyzed testimonies, the archive suggests that "
+        f"{details} Themes most connected to your question include {themes}."
+    )
+
+
+ai_client = LocalAI(LOCAL_MODEL_PATH)
+
+
+@app.route("/")
+def home() -> str:
+    videos = load_videos()
+    return render_template("index.html", videos=videos)
+
+
+@app.route("/ask")
+def ask() -> str:
+    return render_template("ask.html")
+
+
+@app.route("/videos")
+def videos() -> str:
+    entries = load_videos()
+    return render_template("videos.html", videos=entries)
+
+
+@app.route("/about")
+def about() -> str:
+    return render_template("about.html")
+
+
+@app.route("/admin/upload", methods=["GET", "POST"])
+def admin_upload() -> str:
+    abort(404)
+
+
+@app.route("/admin/<token>/upload", methods=["GET", "POST"])
+def admin_upload_token(token: str) -> str:
+    if not ADMIN_UPLOAD_TOKEN or token != ADMIN_UPLOAD_TOKEN:
+        abort(404)
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        speaker = request.form.get("speaker", "").strip()
+        year = request.form.get("year", "").strip() or str(datetime.now().year)
+        summary = request.form.get("summary", "").strip()
+        transcript = request.form.get("transcript", "").strip()
+        key_word = request.form.get("key_word", "").strip()
+        thumbnail = request.files.get("thumbnail")
+        video_file = request.files.get("video")
+
+        if not title or not speaker or not summary or not transcript:
+            flash("Please fill in all required fields.", "error")
+            return redirect(url_for("admin_upload_token", token=token))
+
+        thumbnail_path = ""
+        video_path = ""
+
+        if thumbnail and is_allowed(thumbnail.filename, ALLOWED_IMAGE_EXTENSIONS):
+            filename = secure_filename(thumbnail.filename)
+            saved_path = UPLOAD_DIR / filename
+            thumbnail.save(saved_path)
+            thumbnail_path = f"/static/uploads/{filename}"
+
+        if video_file and is_allowed(video_file.filename, ALLOWED_VIDEO_EXTENSIONS):
+            filename = secure_filename(video_file.filename)
+            saved_path = UPLOAD_DIR / filename
+            video_file.save(saved_path)
+            video_path = f"/static/uploads/{filename}"
+
+        ai_summary, ai_keywords = analyze_transcript(transcript)
+        if ai_client.is_ready():
+            ai_summary_local, ai_keywords_local = ai_client.summarize(transcript)
+            if ai_summary_local:
+                ai_summary = ai_summary_local
+            if ai_keywords_local:
+                ai_keywords = ai_keywords_local
+        key_word = key_word or (ai_keywords[0].title() if ai_keywords else "Story")
+
+        videos = load_videos()
+        next_id = max((video.id for video in videos), default=0) + 1
+        if not thumbnail_path:
+            thumbnail_path = "/static/uploads/sample-ani.svg"
+
+        new_video = VideoEntry(
+            id=next_id,
+            title=title,
+            speaker=speaker,
+            year=year,
+            summary=summary,
+            key_word=key_word,
+            thumbnail=thumbnail_path,
+            video=video_path,
+            transcript=transcript,
+            ai_summary=ai_summary,
+            ai_keywords=ai_keywords,
+        )
+        videos.append(new_video)
+        save_videos(videos)
+        flash("Video entry saved. It will now appear across the site.", "success")
+        return redirect(url_for("videos"))
+
+    return render_template("admin_upload.html", admin_token=token)
+
+
+@app.route("/api/ask", methods=["POST"])
+def api_ask() -> tuple[str, int]:
+    payload = request.get_json(silent=True) or {}
+    question = str(payload.get("question", "")).strip()
+    if not question:
+        return jsonify({"answer": "Please enter a question so the archive can respond.", "matches": []}), 400
+
+    videos = load_videos()
+    question_tokens = set(tokenize(question))
+    ranked = []
+    for video in videos:
+        transcript_tokens = set(tokenize(video.transcript))
+        keyword_tokens = set(tokenize(" ".join(video.ai_keywords)))
+        overlap = len(question_tokens & (transcript_tokens | keyword_tokens))
+        if overlap:
+            ranked.append((overlap, video))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+
+    matches = [video for _, video in ranked][:3]
+    if ai_client.is_ready():
+        context_videos = matches or videos
+        answer = ai_client.answer(question, build_context(context_videos, LOCAL_MODEL_MAX_CHARS))
+        if not answer:
+            answer = "The archive does not contain enough information to answer that question yet."
+    else:
+        answer = generate_answer(question, matches, ai_client)
+
+    return jsonify(
+        {
+            "answer": answer,
+            "matches": [
+                {
+                    "title": video.title,
+                    "summary": video.ai_summary or video.summary,
+                    "speaker": video.speaker,
+                    "year": video.year,
+                    "thumbnail": video.thumbnail,
+                    "video": video.video,
+                }
+                for video in matches
+            ],
+        }
+    ), 200
+
+
+if __name__ == "__main__":
     app.run(debug=True)

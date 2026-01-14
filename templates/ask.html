@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section narrow">
+  <h1>Ask the Archive</h1>
+  <p class="lead">Type a question and the AI guide will search testimonies and respond with context and recommended videos.</p>
+  <div class="search-panel">
+    <input id="question-input" type="text" placeholder="e.g., What do the testimonies say about displacement in 2020?" />
+    <button class="button primary" id="ask-button">Ask</button>
+  </div>
+
+  <div class="ai-response" id="ai-response">
+    <p class="response-title">AI Response</p>
+    <p id="response-text">Ask a question to see a response.</p>
+    <div id="response-videos" class="response-videos"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const input = document.getElementById('question-input');
+  const responseText = document.getElementById('response-text');
+  const responseVideos = document.getElementById('response-videos');
+
+  async function respond() {
+    const query = input.value.toLowerCase().trim();
+    if (!query) {
+      responseText.textContent = 'Please enter a question so the archive can respond.';
+      responseVideos.innerHTML = '';
+      return;
+    }
+
+    responseText.textContent = 'Analyzing the archive...';
+    responseVideos.innerHTML = '';
+
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: query })
+    });
+
+    if (!response.ok) {
+      responseText.textContent = 'Unable to analyze right now. Please try again.';
+      return;
+    }
+
+    const data = await response.json();
+    responseText.textContent = data.answer;
+
+    responseVideos.innerHTML = data.matches.length
+      ? data.matches.map(video => `
+          <div class="response-card">
+            <img src="${video.thumbnail}" alt="${video.title}" />
+            <div>
+              <h3>${video.title}</h3>
+              <p>${video.summary}</p>
+              <span>${video.speaker} • ${video.year}</span>
+              ${video.video ? `<a class="button secondary" href="${video.video}" target="_blank" rel="noopener">Watch video</a>` : ''}
+            </div>
+          </div>
+        `).join('')
+      : '<p class="empty">No analyzed testimonies matched this question yet.</p>';
+  }
+
+  document.getElementById('ask-button').addEventListener('click', respond);
+  input.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      respond();
+    }
+  });
+</script>
+{% endblock %}
