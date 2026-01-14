@@ -4,9 +4,22 @@
 <section class="section">
   <h1>All Testimonies</h1>
   <p class="lead">Browse the full video archive. Each card includes a key word and summary to help with discovery.</p>
+  <div class="search-panel archive-search">
+    <input id="archive-search-text" type="search" placeholder="Search by title, speaker, or keyword">
+    <input id="archive-search-year" type="search" placeholder="Filter by year (e.g., 2023)">
+    <input id="archive-search-summary" type="search" placeholder="Search summaries and topics">
+  </div>
+  <p id="archive-search-count" class="search-count">Showing all testimonies.</p>
   <div class="video-grid">
     {% for video in videos %}
-      <article class="video-card">
+      <article
+        class="video-card"
+        data-title="{{ video.title }}"
+        data-speaker="{{ video.speaker }}"
+        data-year="{{ video.year }}"
+        data-keyword="{{ video.key_word }}"
+        data-summary="{{ video.ai_summary or video.summary }}"
+      >
         <img src="{{ video.thumbnail }}" alt="{{ video.title }}" />
         <div class="video-body">
           <p class="tag">{{ video.key_word }}</p>
@@ -22,5 +35,65 @@
       <p>No videos have been uploaded yet. Visit the admin upload page to add the first testimony.</p>
     {% endfor %}
   </div>
+  <p id="archive-search-empty" class="search-empty" hidden>No testimonies match that search yet.</p>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const textInput = document.getElementById('archive-search-text');
+  const yearInput = document.getElementById('archive-search-year');
+  const summaryInput = document.getElementById('archive-search-summary');
+  const cards = Array.from(document.querySelectorAll('.video-card'));
+  const countLabel = document.getElementById('archive-search-count');
+  const emptyLabel = document.getElementById('archive-search-empty');
+
+  function normalize(value) {
+    return value.toLowerCase().trim();
+  }
+
+  function matchesField(value, query) {
+    if (!query) return true;
+    return normalize(value).includes(query);
+  }
+
+  function updateArchiveFilter() {
+    const textQuery = normalize(textInput.value);
+    const yearQuery = normalize(yearInput.value);
+    const summaryQuery = normalize(summaryInput.value);
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const title = card.dataset.title || '';
+      const speaker = card.dataset.speaker || '';
+      const keyword = card.dataset.keyword || '';
+      const summary = card.dataset.summary || '';
+      const year = card.dataset.year || '';
+
+      const matchesText =
+        matchesField(title, textQuery) ||
+        matchesField(speaker, textQuery) ||
+        matchesField(keyword, textQuery);
+      const matchesYear = matchesField(year, yearQuery);
+      const matchesSummary = matchesField(summary, summaryQuery);
+
+      const isVisible = matchesText && matchesYear && matchesSummary;
+      card.style.display = isVisible ? 'grid' : 'none';
+      if (isVisible) {
+        visibleCount += 1;
+      }
+    });
+
+    if (!textQuery && !yearQuery && !summaryQuery) {
+      countLabel.textContent = 'Showing all testimonies.';
+    } else {
+      countLabel.textContent = `Showing ${visibleCount} matching testimonies.`;
+    }
+    emptyLabel.hidden = visibleCount !== 0;
+  }
+
+  [textInput, yearInput, summaryInput].forEach((input) => {
+    input.addEventListener('input', updateArchiveFilter);
+  });
+</script>
 {% endblock %}
