@@ -22,6 +22,9 @@ LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", "")
 LOCAL_MODEL_CTX = int(os.environ.get("LOCAL_MODEL_CTX", "2048"))
 LOCAL_MODEL_THREADS = int(os.environ.get("LOCAL_MODEL_THREADS", "4"))
 LOCAL_MODEL_MAX_CHARS = int(os.environ.get("LOCAL_MODEL_MAX_CHARS", "6000"))
+LOCAL_MODEL_PROMPT_MAX_CHARS = int(
+    os.environ.get("LOCAL_MODEL_PROMPT_MAX_CHARS", str(LOCAL_MODEL_CTX * 3))
+)
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -67,23 +70,32 @@ class LocalAI:
         self._load()
         if not self._llm:
             return ""
-        output = self._llm(
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=0.2,
-            top_p=0.9,
-            stop=["</answer>"],
-        )
+        try:
+            output = self._llm(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                top_p=0.9,
+                stop=["</answer>"],
+            )
+        except ValueError:
+            return ""
         text = output["choices"][0]["text"].strip()
         return text
+
+    def _clip_text(self, text: str, max_chars: int) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars].rsplit(" ", 1)[0] + "…"
 
     def summarize(self, transcript: str) -> tuple[str, List[str]]:
         if not self.is_ready():
             return "", []
+        clipped_transcript = self._clip_text(transcript, LOCAL_MODEL_PROMPT_MAX_CHARS)
         prompt = (
             "<task>Summarize and extract keywords from the transcript.</task>\n"
             "<transcript>\n"
-            f"{transcript}\n"
+            f"{clipped_transcript}\n"
             "</transcript>\n"
             "<answer>Summary:</answer>"
         )
@@ -91,7 +103,7 @@ class LocalAI:
         keywords_prompt = (
             "<task>Extract 5 single-word keywords.</task>\n"
             "<transcript>\n"
-            f"{transcript}\n"
+            f"{clipped_transcript}\n"
             "</transcript>\n"
             "<answer>Keywords:</answer>"
         )
@@ -102,12 +114,13 @@ class LocalAI:
     def answer(self, question: str, context: str) -> str:
         if not self.is_ready():
             return ""
+        clipped_context = self._clip_text(context, LOCAL_MODEL_PROMPT_MAX_CHARS)
         prompt = (
             "<task>Answer the question using only the context provided.</task>\n"
             "If the context does not contain enough information, say so plainly.\n"
             "Keep the response in 2-4 sentences and avoid quoting the prompt.\n"
             "<context>\n"
-            f"{context}\n"
+            f"{clipped_context}\n"
             "</context>\n"
             f"<question>{question}</question>\n"
             "<answer>"
