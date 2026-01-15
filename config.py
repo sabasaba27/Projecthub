@@ -19,7 +19,7 @@ def _resolve_local_model_path() -> str:
     path_file = DATA_DIR / "local_model_path.txt"
     if path_file.exists():
         return path_file.read_text(encoding="utf-8").strip()
-    return ""
+    return r"C:\用户\_gary\models\phi-2.Q4_K_M.gguf"
 
 
 @dataclass(frozen=True)
