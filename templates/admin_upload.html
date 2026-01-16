@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section narrow">
+  <h1>Admin Upload</h1>
+  <p class="lead">Upload a new testimony so it can appear across the archive.</p>
+  <p class="admin-note">Use the private admin URL to access this form.</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-group">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form class="upload-form" method="post" enctype="multipart/form-data">
+    <label>
+      Title
+      <input type="text" name="title" required />
+    </label>
+    <label>
+      Speaker
+      <input type="text" name="speaker" required />
+    </label>
+    <label>
+      Year
+      <input type="text" name="year" placeholder="2023" />
+    </label>
+    <label>
+      Summary
+      <textarea name="summary" rows="4" required></textarea>
+    </label>
+    <label>
+      Transcript (required for AI analysis)
+      <textarea name="transcript" rows="6" required></textarea>
+    </label>
+    <label>
+      Key Word (AI highlight)
+      <input type="text" name="key_word" placeholder="Optional override" />
+    </label>
+    <label>
+      Thumbnail image
+      <input type="file" name="thumbnail" accept="image/*" />
+    </label>
+    <label>
+      Video file
+      <input type="file" name="video" accept="video/*" />
+    </label>
+    <button class="button primary" type="submit">Save testimony</button>
+  </form>
+</section>
+{% endblock %}
