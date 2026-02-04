@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compliance AI MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; max-width: 900px; }
+    h1 { margin-bottom: 10px; }
+    section { border: 1px solid #ddd; padding: 16px; margin-bottom: 20px; border-radius: 6px; }
+    label { display: block; margin-top: 8px; }
+    input, textarea, button, select { width: 100%; padding: 8px; margin-top: 4px; }
+    button { background: #0b5fff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .note { color: #555; font-size: 0.9rem; }
+    .download-link { display: inline-block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Compliance AI MVP (Backend Test UI)</h1>
+  <p class="note">Use this plain UI to hit the backend endpoints. It does not include auth.</p>
+
+  <section>
+    <h2>Upload Bank Document</h2>
+    <form action="/documents/upload" method="post" enctype="multipart/form-data">
+      <label>Tenant ID</label>
+      <input name="tenant_id" value="1" />
+      <label>Title</label>
+      <input name="title" placeholder="Document title" />
+      <label>File (PDF or DOCX)</label>
+      <input type="file" name="file" />
+      <button type="submit">Upload</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Register Regulatory Source</h2>
+    <form id="reg-source">
+      <label>Name</label>
+      <input name="name" placeholder="FFIEC 051 Form" />
+      <label>URL</label>
+      <input name="url" placeholder="https://.../FFIEC051_202512_f.pdf" />
+      <label>Category</label>
+      <input name="category" value="call-report" />
+      <button type="submit">Create Source</button>
+    </form>
+    <p class="note">After creating, call /regulatory/ingest/{source_id} manually to ingest.</p>
+  </section>
+
+  <section>
+    <h2>Run Compliance Check</h2>
+    <form id="compliance-run">
+      <label>Tenant ID</label>
+      <input name="tenant_id" value="1" />
+      <label>Report Type</label>
+      <input name="report_type" value="FFIEC051" />
+      <label>Requirements (one per line)</label>
+      <textarea name="requirements" rows="5">Report total assets and liabilities.
+Report Tier 1 capital.
+Disclose past due loans.</textarea>
+      <button type="submit">Run</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Generate Report</h2>
+    <form id="report-create">
+      <label>Run ID</label>
+      <input name="run_id" value="1" />
+      <label>Title</label>
+      <input name="title" value="ffiec051-demo" />
+      <label>Format</label>
+      <select name="format">
+        <option value="pdf">PDF</option>
+        <option value="docx">DOCX</option>
+      </select>
+      <button type="submit">Generate</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Download Bundle</h2>
+    <p class="note">Downloads all generated reports and stored artifacts from storage.</p>
+    <a class="download-link" href="/downloads/bundle">Download compliance_bundle.zip</a>
+  </section>
+
+  <script>
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      alert(JSON.stringify(data, null, 2));
+    }
+
+    document.getElementById("reg-source").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      postJson("/regulatory/sources", Object.fromEntries(formData.entries()));
+    });
+
+    document.getElementById("compliance-run").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const requirements = formData.get("requirements").split("\n").filter(Boolean);
+      postJson("/compliance/run", {
+        tenant_id: Number(formData.get("tenant_id")),
+        report_type: formData.get("report_type"),
+        requirements,
+      });
+    });
+
+    document.getElementById("report-create").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      postJson("/reports/", {
+        run_id: Number(formData.get("run_id")),
+        title: formData.get("title"),
+        format: formData.get("format"),
+      });
+    });
+  </script>
+</body>
+</html>
