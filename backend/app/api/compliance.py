@@ -20,4 +20,11 @@ def run_compliance(payload: ComplianceRequest, db: Session = Depends(get_db)) ->
     run.status = "completed"
     db.commit()
     log_event(db, payload.tenant_id, None, "compliance.run", f"Run {run.id} for {payload.report_type}")
-    return results
+    return [
+        ComplianceResultResponse(
+            requirement_id=result.requirement_id,
+            status=result.status,
+            rationale=result.rationale,
+        )
+        for result in results
+    ]

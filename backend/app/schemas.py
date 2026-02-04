@@ -45,9 +45,6 @@ class ComplianceResultResponse(BaseModel):
     status: str
     rationale: str
 
-    class Config:
-        from_attributes = True
-
 
 class ReportRequest(BaseModel):
     run_id: int
