@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.api import audit, compliance, documents, regulatory, reports, downloads
 from app.utils.config import settings
 
@@ -13,6 +15,16 @@ app.include_router(compliance.router, prefix="/compliance", tags=["compliance"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(audit.router, prefix="/audit", tags=["audit"])
 app.include_router(downloads.router, prefix="/downloads", tags=["downloads"])
+
+
+@app.get("/")
+def health_check() -> dict:
+    return {
+        "status": "ok",
+        "service": "compliance-ai-backend",
+        "model": settings.openai_model,
+    }
+
 
 
 @app.get("/")

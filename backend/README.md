@@ -14,13 +14,6 @@
    export OPENAI_MODEL=gpt-4o
    export STORAGE_DIR=/workspace/Projecthub/backend/app/storage
    ```
-   **Windows PowerShell:**
-   ```powershell
-   $env:DATABASE_URL="postgresql://user:password@localhost:5432/compliance_ai"
-   $env:OPENAI_API_KEY="your_key"
-   $env:OPENAI_MODEL="gpt-4o"
-   $env:STORAGE_DIR="C:\\path\\to\\Projecthub\\backend\\app\\storage"
-   ```
 4. Initialize the database:
    ```bash
    python -m scripts.init_db
@@ -40,13 +33,6 @@ export DATABASE_URL=sqlite:///./compliance_demo.db
 export STORAGE_DIR=/workspace/Projecthub/backend/app/storage
 python -m scripts.demo_run
 ```
-**Windows PowerShell:**
-```powershell
-$env:OPENAI_DISABLED="true"
-$env:DATABASE_URL="sqlite:///./compliance_demo.db"
-$env:STORAGE_DIR="C:\\path\\to\\Projecthub\\backend\\app\\storage"
-python -m scripts.demo_run
-```
 
 The report will be written into `backend/app/storage/reports/`.
 
@@ -58,5 +44,13 @@ The report will be written into `backend/app/storage/reports/`.
 - `POST /compliance/run` — run compliance checks
 - `POST /reports/` — generate reports
 - `GET /audit/` — view audit logs
+- `POST /documents/upload` — upload bank documents (PDF/DOCX)
+- `POST /regulatory/sources` — register regulatory sources
+- `POST /regulatory/ingest/{source_id}` — download + chunk regulatory sources
+- `POST /compliance/run` — run compliance checks
+- `POST /reports/` — generate reports
+- `GET /audit/` — view audit logs
 - `GET /downloads/bundle` — download a ZIP of storage artifacts
+- `GET /web/` — basic HTML UI for manual testing
+
 - `GET /web/` — basic HTML UI for manual testing

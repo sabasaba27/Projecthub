@@ -45,9 +45,6 @@ class ComplianceResultResponse(BaseModel):
     status: str
     rationale: str
 
-    class Config:
-        from_attributes = True
-
 
 class ReportRequest(BaseModel):
     run_id: int
@@ -59,18 +56,6 @@ class ReportResponse(BaseModel):
     id: int
     title: str
     output_path: str
-
-    class Config:
-        from_attributes = True
-
-
-class AuditLogResponse(BaseModel):
-    id: int
-    tenant_id: int
-    user_id: int | None
-    action: str
-    details: str
-    created_at: datetime
 
     class Config:
         from_attributes = True
