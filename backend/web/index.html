@@ -12,6 +12,8 @@
     input, textarea, button, select { width: 100%; padding: 8px; margin-top: 4px; }
     button { background: #0b5fff; color: white; border: none; border-radius: 4px; cursor: pointer; }
     .note { color: #555; font-size: 0.9rem; }
+.download-link { display: inline-block; margin-top: 8px; }
+
   </style>
 </head>
 <body>
@@ -75,6 +77,12 @@ Disclose past due loans.</textarea>
       <button type="submit">Generate</button>
     </form>
   </section>
+
+<section>
+  <h2>Download Bundle</h2>
+  <p class="note">Downloads all generated reports and stored artifacts from storage.</p>
+  <a class="download-link" href="/downloads/bundle">Download compliance_bundle.zip</a>
+</section>
 
   <script>
     async function postJson(url, payload) {

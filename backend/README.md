@@ -44,4 +44,13 @@ The report will be written into `backend/app/storage/reports/`.
 - `POST /compliance/run` — run compliance checks
 - `POST /reports/` — generate reports
 - `GET /audit/` — view audit logs
+- `POST /documents/upload` — upload bank documents (PDF/DOCX)
+- `POST /regulatory/sources` — register regulatory sources
+- `POST /regulatory/ingest/{source_id}` — download + chunk regulatory sources
+- `POST /compliance/run` — run compliance checks
+- `POST /reports/` — generate reports
+- `GET /audit/` — view audit logs
+- `GET /downloads/bundle` — download a ZIP of storage artifacts
+- `GET /web/` — basic HTML UI for manual testing
+
 - `GET /web/` — basic HTML UI for manual testing
