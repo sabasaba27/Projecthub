@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <h1>Voices of Artsakh</h1>
+    <p>
+      A living archive of first-hand testimonies, preserving the memories, resilience, and cultural
+      identity of Artsakh through video stories and AI-guided learning.
+    </p>
+    <div class="hero-actions">
+      <a class="button primary" href="/videos">Explore the Archive</a>
+      <a class="button secondary" href="/ask">Ask the Archive</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <p class="tag">AI-guided highlight</p>
+    <h2 id="highlight-word">Resilience</h2>
+    <div class="highlight-frame">
+      <img id="highlight-image" src="" alt="Featured testimony" />
+    </div>
+    <p id="highlight-caption"></p>
+    <span class="helper">Auto-rotates through every uploaded testimony.</span>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="grid-item">
+    <h3>Purpose</h3>
+    <p>Collect and preserve video testimonies from people directly connected to Artsakh.</p>
+  </div>
+  <div class="grid-item">
+    <h3>AI Learning Guide</h3>
+    <p>Ask questions in natural language and receive verified context with recommended videos.</p>
+  </div>
+  <div class="grid-item">
+    <h3>Global Access</h3>
+    <p>English-first interface with Armenian testimonies and subtitles for international audiences.</p>
+  </div>
+</section>
+
+<section class="section">
+  <h2>How the archive works</h2>
+  <ol class="steps">
+    <li>Record 5–10 minute testimonies with informed consent and ethical review.</li>
+    <li>Upload each story with a key word and summary to guide discovery.</li>
+    <li>Use the AI assistant to surface relevant videos and context.</li>
+  </ol>
+</section>
+
+<section class="section map-section">
+  <h2>Artsakh in the Caucasus Region</h2>
+  <p class="lead">An interactive map highlighting Artsakh within the wider Caucasus region.</p>
+  <div class="map-frame">
+    <iframe
+      title="Artsakh map"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=42.6%2C39.2%2C48.2%2C43.2&amp;layer=mapnik&amp;marker=40.2%2C46.6"
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+    ></iframe>
+    <img class="map-fallback" src="/static/uploads/artsakh-map.svg" alt="Map of the Caucasus highlighting Artsakh" />
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const videos = {{ videos | tojson }};
+  const image = document.getElementById('highlight-image');
+  const word = document.getElementById('highlight-word');
+  const caption = document.getElementById('highlight-caption');
+  let index = 0;
+
+  function updateHighlight() {
+    if (!videos.length) {
+      word.textContent = 'Stories incoming';
+      caption.textContent = 'Upload testimonies to begin the rotation.';
+      image.src = '/static/uploads/sample-ani.svg';
+      return;
+    }
+    const current = videos[index % videos.length];
+    word.textContent = current.ai_keywords?.[0] ? current.ai_keywords[0] : current.key_word;
+    caption.textContent = `${current.title} — ${current.speaker} (${current.year})`;
+    image.src = current.thumbnail || '/static/uploads/sample-ani.svg';
+    index += 1;
+  }
+
+  updateHighlight();
+  setInterval(updateHighlight, 4500);
+</script>
+{% endblock %}
