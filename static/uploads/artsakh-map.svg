@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
+  <defs>
+    <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c7d7f0" />
+      <stop offset="100%" stop-color="#f1f6ff" />
+    </linearGradient>
+    <linearGradient id="ridge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8aa3c7" />
+      <stop offset="100%" stop-color="#5b78a5" />
+    </linearGradient>
+    <linearGradient id="artsakh" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f58b70" />
+      <stop offset="100%" stop-color="#e04a3f" />
+    </linearGradient>
+  </defs>
+  <rect width="960" height="520" fill="#eef3fb" />
+  <path d="M120 400 L280 130 L520 120 L760 200 L880 380 L660 470 L360 470 Z" fill="url(#land)" stroke="#b6c4dd" stroke-width="6" />
+  <path d="M240 350 L350 180 L510 170 L690 230 L760 340 L620 400 L420 410 Z" fill="url(#ridge)" opacity="0.35" />
+  <path d="M520 285 L570 255 L635 270 L650 310 L600 345 L535 332 Z" fill="url(#artsakh)" stroke="#b9322a" stroke-width="4" />
+  <text x="585" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#fff">Artsakh</text>
+  <text x="480" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#2a3e5e">Caucasus Region</text>
+</svg>

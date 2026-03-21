@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voices of Artsakh</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="logo" href="/">Voices of Artsakh</a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/ask">Ask the Archive</a>
+        <a href="/videos">Videos</a>
+        <a href="/about">About</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>Voices of Artsakh is a digital archive preserving testimonies and stories through video and AI-guided learning.</p>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

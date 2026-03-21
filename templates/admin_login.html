@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section narrow">
+  <h1>Admin Login</h1>
+  <p class="admin-note">Enter the admin password to access the upload panel.</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-group">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form class="upload-form" method="post" action="{{ url_for('admin_login', token=admin_token) }}">
+    <label>
+      Password
+      <input type="password" name="password" required>
+    </label>
+    <button class="button primary" type="submit">Unlock Admin Upload</button>
+  </form>
+</section>
+{% endblock %}

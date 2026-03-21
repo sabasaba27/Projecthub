@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <h1>Voices of Artsakh</h1>
+    <p>
+      A living archive of first-hand testimonies, preserving the memories, resilience, and cultural
+      identity of Artsakh through video stories and AI-guided learning.
+    </p>
+    <div class="hero-actions">
+      <a class="button primary" href="/videos">Explore the Archive</a>
+      <a class="button secondary" href="/ask">Ask the Archive</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <p class="tag">AI-guided highlight</p>
+    <h2 id="highlight-word">Resilience</h2>
+    <div class="highlight-frame">
+      <img id="highlight-image" src="" alt="Featured testimony" />
+    </div>
+    <p id="highlight-caption"></p>
+    <span class="helper">Auto-rotates through every uploaded testimony.</span>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="grid-item">
+    <h3>Purpose</h3>
+    <p>Collect and preserve video testimonies from people directly connected to Artsakh.</p>
+  </div>
+  <div class="grid-item">
+    <h3>AI Learning Guide</h3>
+    <p>Ask questions in natural language and receive verified context with recommended videos.</p>
+  </div>
+  <div class="grid-item">
+    <h3>Global Access</h3>
+    <p>English-first interface with Armenian testimonies and subtitles for international audiences.</p>
+  </div>
+</section>
+
+<section class="section map-section">
+  <h2>Artsakh Map</h2>
+  <p class="lead">A reference map highlighting Artsakh (Nagorno-Karabakh) within the region.</p>
+  <figure class="map-frame">
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/2/23/Nagorno-Karabakh_map_en.svg"
+      alt="Map highlighting Artsakh (Nagorno-Karabakh) region"
+    />
+    <figcaption>Source: Wikimedia Commons.</figcaption>
+  </figure>
+</section>
+
+<section class="section photo-section">
+  <h2>Displacement & Human Rights Impact</h2>
+  <p class="lead">Archival imagery that reflects displacement and the human cost of conflict.</p>
+  <div class="photo-grid">
+    <figure class="photo-card">
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Nagorno-Karabakh_refugees_1992.jpg"
+        alt="Displaced families during the Nagorno-Karabakh conflict"
+      />
+      <figcaption>Displaced families during the early 1990s conflict.</figcaption>
+    </figure>
+    <figure class="photo-card">
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/3/32/Armenian_refugees_Nagorno-Karabakh_1992.jpg"
+        alt="Refugees fleeing fighting in Nagorno-Karabakh"
+      />
+      <figcaption>Refugees fleeing violence in Artsakh.</figcaption>
+    </figure>
+    <figure class="photo-card">
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/9/9c/Stepanakert_destruction_1992.jpg"
+        alt="Destruction in Stepanakert during the conflict"
+      />
+      <figcaption>Destruction in Stepanakert during the conflict.</figcaption>
+    </figure>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const videos = {{ videos | tojson }};
+  const image = document.getElementById('highlight-image');
+  const word = document.getElementById('highlight-word');
+  const caption = document.getElementById('highlight-caption');
+  let index = 0;
+
+  function updateHighlight() {
+    if (!videos.length) {
+      word.textContent = 'Stories incoming';
+      caption.textContent = 'Upload testimonies to begin the rotation.';
+      image.src = '/static/uploads/sample-ani.svg';
+      return;
+    }
+    const current = videos[index % videos.length];
+    word.textContent = current.ai_keywords?.[0] ? current.ai_keywords[0] : current.key_word;
+    caption.textContent = `${current.title} — ${current.speaker} (${current.year})`;
+    image.src = current.thumbnail || '/static/uploads/sample-ani.svg';
+    index += 1;
+  }
+
+  updateHighlight();
+  setInterval(updateHighlight, 4500);
+</script>
+{% endblock %}
