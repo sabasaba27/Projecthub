@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClassMarket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#/" class="logo"><span class="logo-mark">◆</span> ClassMarket</a>
+    <form class="search" id="search">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M10 4a6 6 0 1 0 3.7 10.7l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
+      <input name="q" placeholder="Search markets" autocomplete="off">
+    </form>
+    <nav id="nav"></nav>
+  </div>
+</header>
+<main id="app"></main>
+<div id="toast" class="toast" hidden></div>
+<script src="/lmsr.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
