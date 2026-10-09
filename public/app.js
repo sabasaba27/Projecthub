@@ -45,6 +45,24 @@ function toast(msg) {
   toastTimer = setTimeout(() => (t.hidden = true), 2600);
 }
 
+// In-page yes/no dialog, since some embedded views block the browser's own confirm box.
+function ask(message, okLabel = 'Delete') {
+  return new Promise((resolve) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-wrap';
+    wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><p>${esc(message)}</p>
+      <div class="modal-actions"><button class="btn" data-a="0">Cancel</button><button class="btn primary" data-a="1">${esc(okLabel)}</button></div></div>`;
+    wrap.onclick = (e) => {
+      const b = e.target.closest('[data-a]');
+      if (!b && e.target !== wrap) return;
+      wrap.remove();
+      resolve(b?.dataset.a === '1');
+    };
+    document.body.appendChild(wrap);
+    $('[data-a="1"]', wrap).focus();
+  });
+}
+
 function renderNav() {
   $('#nav').innerHTML = me
     ? `${me.isAdmin ? '<a class="btn sm" href="#/admin">Admin</a>' : ''}
@@ -541,16 +559,16 @@ async function admin(_, params) {
     const t = e.target;
     const reload = () => admin(_, params);
     try {
-      if (t.dataset.delMarket && confirm('Delete this market and all its votes? Open markets refund voters.')) {
+      if (t.dataset.delMarket && await ask('Delete this market and all its votes? Open markets refund voters.')) {
         await api('DELETE', '/api/admin/markets/' + t.dataset.delMarket); toast('Market deleted'); reload();
-      } else if (t.dataset.delTrade && confirm('Delete this vote? The voter gets their points back.')) {
+      } else if (t.dataset.delTrade && await ask('Delete this vote? The voter gets their points back.')) {
         await api('DELETE', '/api/admin/trades/' + t.dataset.delTrade); toast('Vote deleted'); reload();
-      } else if (t.dataset.delUser && confirm('Delete this user and all their votes?')) {
+      } else if (t.dataset.delUser && await ask('Delete this user and all their votes?')) {
         await api('DELETE', '/api/admin/users/' + t.dataset.delUser); toast('User deleted'); reload();
       } else if (t.dataset.resolve) {
         const outcomeId = $(`[data-resolve-select="${t.dataset.resolve}"]`).value;
         if (!outcomeId) return toast('Pick the winning option first');
-        if (!confirm('Resolve this market? Winners get paid and voting closes.')) return;
+        if (!(await ask('Resolve this market? Winners get paid and voting closes.', 'Resolve'))) return;
         await api('POST', `/api/admin/markets/${t.dataset.resolve}/resolve`, { outcomeId: Number(outcomeId) });
         toast('Market resolved'); reload();
       }
