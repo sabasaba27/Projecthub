@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClassMarket</title>
+<style>
+  :root {
+    --bg: #0f1419; --card: #1a2129; --border: #2a3440; --text: #e6edf3; --muted: #8b98a5;
+    --accent: #2d9cdb; --yes: #27ae60; --no: #eb5757;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+  .logo { font-weight: 800; font-size: 20px; }
+  .logo span { color: var(--accent); }
+  .balance { background: var(--card); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; font-weight: 600; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .banner { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .market { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .market h2 { margin: 0 0 4px; font-size: 18px; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .option { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+  .option-name { font-weight: 500; }
+  .option-name.blank { color: var(--muted); font-style: italic; }
+  .bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .bar div { height: 100%; background: var(--accent); }
+  .pct { font-weight: 700; min-width: 48px; text-align: right; }
+  .btns { display: flex; gap: 6px; }
+  button { border: 0; border-radius: 6px; padding: 7px 12px; font-weight: 600; cursor: pointer; color: #fff; }
+  .yes { background: var(--yes); } .no { background: var(--no); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .mine { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .reset { background: transparent; color: var(--muted); border: 1px solid var(--border); margin-top: 8px; }
+  @media (max-width: 520px) {
+    .option { grid-template-columns: 1fr auto; }
+    .btns { grid-column: 1 / -1; }
+    .btns button { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Class<span>Market</span></div>
+  <div class="balance">🪙 <span id="bal">1000</span> coins</div>
+</header>
+<main>
+  <p class="banner">Just for fun. Play coins only, no real money.</p>
+  <div id="markets"></div>
+  <button class="reset" onclick="resetAll()">Reset my coins &amp; bets</button>
+</main>
+
+<script>
+// ===== EDIT HERE =====
+const SUBJECT = "[NAME]";   // classmate's name / nickname
+const BET_SIZE = 50;        // coins per click
+
+const MARKETS = [
+  {
+    id: "when",
+    title: `When will ${SUBJECT} get expelled?`,
+    meta: "Resolves on the month it happens",
+    options: ["October 2026", "November 2026", "December 2026", "January 2027",
+              "February 2027", "March 2027", "April 2027", "May 2027", "June 2027", "Never 😇"],
+  },
+  {
+    id: "warning",
+    title: `What will ${SUBJECT}'s next warning be for?`,
+    meta: "Resolves on the next official warning",
+    options: ["", "", "", ""],   // fill these in
+  },
+  {
+    id: "catch",
+    title: `Who will catch ${SUBJECT} next?`,
+    meta: "Resolves on the next person to catch him",
+    options: ["", "", "", ""],   // fill these in
+  },
+];
+// =====================
+
+const KEY = "classmarket-v1";
+let state = load();
+
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) return s; } catch (e) {}
+  // seed pools so odds aren't all identical
+  const pools = {};
+  MARKETS.forEach(m => m.options.forEach((_, i) => pools[m.id + i] = { yes: 100 + Math.floor(Math.random() * 200), no: 300 }));
+  return { balance: 1000, pools, mine: {} };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+function bet(key, side) {
+  if (state.balance < BET_SIZE) return;
+  state.balance -= BET_SIZE;
+  state.pools[key] = state.pools[key] || { yes: 100, no: 300 };
+  state.pools[key][side] += BET_SIZE;
+  state.mine[key] = state.mine[key] || { yes: 0, no: 0 };
+  state.mine[key][side] += BET_SIZE;
+  save(); render();
+}
+
+function resetAll() { try { localStorage.removeItem(KEY); } catch (e) {} state = load(); render(); }
+
+function render() {
+  document.getElementById("bal").textContent = state.balance;
+  const root = document.getElementById("markets");
+  root.innerHTML = "";
+  MARKETS.forEach(m => {
+    const el = document.createElement("div");
+    el.className = "market";
+    el.innerHTML = `<h2></h2><div class="meta"></div>`;
+    el.querySelector("h2").textContent = m.title;
+    el.querySelector(".meta").textContent = m.meta;
+    m.options.forEach((name, i) => {
+      const key = m.id + i;
+      const p = state.pools[key] || { yes: 100, no: 300 };
+      const pct = Math.round(100 * p.yes / (p.yes + p.no));
+      const mine = state.mine[key];
+      const row = document.createElement("div");
+      row.className = "option";
+      row.innerHTML = `
+        <div>
+          <div class="option-name ${name ? "" : "blank"}"></div>
+          <div class="bar"><div style="width:${pct}%"></div></div>
+          ${mine ? `<div class="mine">Your bets: Yes ${mine.yes} · No ${mine.no}</div>` : ""}
+        </div>
+        <div class="pct">${pct}%</div>
+        <div class="btns">
+          <button class="yes">Yes ${pct}¢</button>
+          <button class="no">No ${100 - pct}¢</button>
+        </div>`;
+      row.querySelector(".option-name").textContent = name || `Option ${i + 1} (blank)`;
+      const [y, n] = row.querySelectorAll("button");
+      y.disabled = n.disabled = !name || state.balance < BET_SIZE;
+      y.onclick = () => bet(key, "yes");
+      n.onclick = () => bet(key, "no");
+      el.appendChild(row);
+    });
+    root.appendChild(el);
+  });
+}
+render();
+</script>
+</body>
+</html>
